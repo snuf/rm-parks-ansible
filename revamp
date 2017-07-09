@@ -1,0 +1,66 @@
+#!/bin/bash
+
+refresh() {
+    vagrant destroy -f
+    vagrant up --parallel
+}
+
+hostsfile() {
+    cd ansible
+    cat hosts.header > hosts
+    type==none
+    otype=none
+    for hostline in $(vagrant status | grep running | sed -e s/[\(\)]//g | awk '{ print $1"-"$3 }')
+    do
+        host=${hostline%-*}
+        provider=${hostline##*-}
+        dev=eth1
+        vagrant ssh $host -c "ip addr show $dev" > /dev/null 2>&1
+        if [ "$?" != "0" ];then
+            dev="eth0"
+        fi
+        ip=$(vagrant ssh $host -c "ip addr show $dev" | grep "inet " | awk '{ print $2 }' | awk -F\/ '{print $1 }')
+        type=$(echo $host | awk -F[_-] '{ print $1 }')
+        if [ "$otype" != "$type" ]; then
+            echo "" >> hosts
+            echo "[$type]" >> hosts
+            otype=$type
+        fi
+        echo $ip ansible_ssh_private_key_file=../.vagrant/machines/$host/$provider/private_key >> hosts
+    done
+
+    hap="haproxy"
+    for id in mongodb haproxy nodejs eyes
+    do
+        grep $id hosts > /dev/null 2>&1
+        if [ "$?" != "0" ]; then
+            echo "" >> hosts
+            echo "[${id}]" >> hosts
+        fi
+    done
+}
+
+ansible() {
+    cd ansible
+    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts playbook.yaml
+}
+
+case "$1" in
+    hosts)
+        hostsfile
+        ;;
+    ansible)
+        ansible
+        ;;
+    refresh)
+        refresh
+    ;;
+    full)
+        refresh
+        hostsfile
+        ansible
+        ;;
+    *)
+        echo "$0: (full|refresh|ansible|hosts)"
+        ;;
+esac

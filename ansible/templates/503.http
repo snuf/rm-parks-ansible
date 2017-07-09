@@ -1,0 +1,16 @@
+HTTP/1.0 503 Service Unavailable
+Cache-Control: no-cache
+Connection: close
+Content-Type: text/html
+
+<html><head>
+<META HTTP-EQUIV="refresh" CONTENT="10">
+</head>
+<body><h1>503 Service Unavailable</h1>
+No server is available to handle this request.
+<br>
+<div>
+    <iframe id='iframe2' src="/haproxy?stats" frameborder="0" style="overflow: hidden; height: 100%;
+        width: 100%; position: absolute;" height="100%" width="100%"></iframe>
+</div>
+</body></html>

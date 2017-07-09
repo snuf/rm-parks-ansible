@@ -1,0 +1,26 @@
+[all:vars]
+ansible_connection=ssh
+ansible_ssh_user=vagrant
+# ansible_ssh_pass=vagrant
+# ansible_ssh_private_key_file=~/.ssh/id_bootstrap
+# proxy_http="http://a.b.c.d:8080"
+# proxy_https="http://a.b.c.d:8080"
+eyes_interval=0.3
+
+[haproxy]
+192.168.121.222 ansible_ssh_private_key_file=../.vagrant/machines/haproxy/libvirt/private_key
+192.168.121.64 ansible_ssh_private_key_file=../.vagrant/machines/haproxy-1/libvirt/private_key
+
+[nodejs]
+192.168.121.94 ansible_ssh_private_key_file=../.vagrant/machines/nodejs/libvirt/private_key
+192.168.121.14 ansible_ssh_private_key_file=../.vagrant/machines/nodejs-1/libvirt/private_key
+192.168.121.158 ansible_ssh_private_key_file=../.vagrant/machines/nodejs-2/libvirt/private_key
+192.168.121.198 ansible_ssh_private_key_file=../.vagrant/machines/nodejs-3/libvirt/private_key
+
+[mongodb]
+192.168.121.107 ansible_ssh_private_key_file=../.vagrant/machines/mongodb/libvirt/private_key
+192.168.121.243 ansible_ssh_private_key_file=../.vagrant/machines/mongodb-1/libvirt/private_key
+
+[eyes]
+192.168.121.59 ansible_ssh_private_key_file=../.vagrant/machines/eyes/libvirt/private_key
+192.168.121.149 ansible_ssh_private_key_file=../.vagrant/machines/eyes-1/libvirt/private_key

@@ -1,0 +1,243 @@
+# ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i hosts playbook.yaml
+#
+---
+- hosts: all
+  become: true
+
+  vars:
+    num_proxies: "{{ groups['haproxy'] | length }}"
+
+  # yes this is the other way around than the rest... :P
+  environment:
+    http_proxy: "{{proxy_http | default }}"
+    https_proxy: "{{proxy_https | default }}"
+
+  tasks:
+    - name: Set proxy facts
+      set_fact:
+        http_proxy: "{{ proxy_http }}"
+        https_proxy: "{{ proxy_https }}"
+        eyes_interval: "{{ eyes_interval | default(0.3) }}"
+      when: proxy_http is defined
+
+    - name: Set default fact for two haproxies
+      set_fact:
+        frontend_url: http://{{ groups['haproxy'][0] }}/
+        mongodb_url: mongodb://{{ groups['haproxy'][1] }}:27017
+      when: num_proxies | int == 2
+
+    - name: Change fact if only one haproxy node exists
+      set_fact:
+        frontend_url: http://{{ groups['haproxy'][0] }}/
+        mongodb_url: mongodb://{{ groups['haproxy'][0] }}:27017
+      when: num_proxies | int == 1
+
+    - name: Change fact if no haproxy node exists, we assume everything is single!!
+      set_fact:
+        frontend_url: http://{{ groups['nodejs'][0] }}:8080/
+        mongodb_url: mongodb://{{ groups['mongodb'][0] }}:27017
+      when: num_proxies | int == 0
+
+    - name: Installs git
+      apt: pkg=git state=installed update_cache=true force=true
+
+    - name: Install acl, or else stuff barfs on older ubuntu..
+      apt: pkg=acl state=installed update_cache=false
+
+- hosts: haproxy
+  become: true
+  environment:
+    http_proxy: "{{http_proxy | default }}"
+    https_proxy: "{{https_proxy | default }}"
+
+  tasks:
+    - name: Installs haproxy
+      apt: pkg=haproxy state=installed update_cache=true
+
+    - name: Enable init script
+      replace: dest='/etc/default/haproxy'
+         regexp='ENABLED=0'
+         replace='ENABLED=1'
+      when: not ansible_check_mode
+      notify: start haproxy
+
+    - name: Copy status 503 in place
+      copy:
+        src: templates/503.http
+        dest: /etc/haproxy/errors/503.http
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Update HAProxy config
+      template: src=templates/haproxy.cfg
+        dest=/etc/haproxy/haproxy.cfg
+        backup=yes
+      notify: restart haproxy
+      when: inventory_hostname == "{{ groups['haproxy'][0] }}"
+
+    - name: debug
+      debug: 
+        msg: "Stats viewable at http://{{ groups['haproxy'][0] }} with a web browser!!!"
+      when: inventory_hostname == "{{ groups['haproxy'][0] }}"
+
+    - name: Update HAProxy config
+      template: src=templates/haproxy_mongodb.cfg
+        dest=/etc/haproxy/haproxy.cfg
+        backup=yes
+      notify: restart haproxy
+      when: inventory_hostname == "{{ groups['haproxy'][1] }}"
+      check_mode: no
+      ignore_errors: True
+
+    - name: The thing that makes lights go on
+      cron:
+        cron_file: "trees"
+        user: "root"
+        name: "Tree, lights"
+        minute: "*/10"
+        job: "/etc/init.d/haproxy restart > /dev/null 2>&1"
+
+  handlers:
+    - name: start haproxy
+      service: name=haproxy state=started
+      when: not ansible_check_mode
+    - name: restart haproxy
+      service: name=haproxy state=restarted
+      when: not ansible_check_mode
+
+- hosts: mongodb
+  become: true
+  environment:
+    http_proxy: "{{http_proxy | default }}"
+    https_proxy: "{{https_proxy | default }}"
+
+  tasks:
+    - name: Installs mongodb server
+      apt: pkg=mongodb state=installed update_cache=true
+      notify:
+        - start mongodb
+
+    - name: Comment out bind_ip in mongodb.conf 
+      replace:
+        dest: /etc/mongodb.conf
+        regexp: '^bind_ip'
+        replace: '#bind_ip'
+      when: not ansible_check_mode
+      notify:
+        - restart mongodb
+
+  handlers:
+    - name: start mongodb
+      service: name=mongodb state=started
+      when: not ansible_check_mode
+    - name: restart mongodb
+      service: name=mongodb state=restarted
+      when: not ansible_check_mode
+
+- hosts: nodejs
+  become: true
+  environment:
+    http_proxy: "{{http_proxy | default }}"
+    https_proxy: "{{https_proxy | default }}"
+
+  tasks:
+    - name: create group parks
+      group:
+        name: parks
+
+    - name: create user parks
+      user:
+        name: parks
+        shell: /bin/bash
+        groups: parks
+        append: yes
+
+    - name: Installs node
+      apt: pkg=node state=installed update_cache=true
+
+    - name: Installs nodejs-legacy. due to sbin node and ubuntu
+      apt: pkg=nodejs-legacy state=installed update_cache=false
+
+    - name: Installs NPM
+      apt: pkg=npm state=installed update_cache=false
+
+    - name: Pull parks git repo
+      become_user: parks
+      git:
+        repo: 'https://github.com/snuf/restify-mongodb-parks.git'
+        update: no
+        clone: yes
+        dest: /home/parks/restify-mongodb-parks
+      when: not ansible_check_mode
+
+    - name: Setup npm package deps...
+      become_user: parks
+      shell: npm install
+      args:
+        chdir: /home/parks/restify-mongodb-parks
+      when: not ansible_check_mode
+
+    - name: "Install forever (to run Node.js app)."
+      npm: 
+        name: forever
+        global: true
+        state: present
+      when: not ansible_check_mode
+
+    - name: "Check list of Node.js apps running."
+      become_user: parks
+      command: forever list
+      register: node_list
+      changed_when: false
+      check_mode: no
+      when: not ansible_check_mode
+
+    - name: "Start Node.js app."
+      become_user: parks
+      command: forever -m 60 start server.js
+      args:
+        chdir: /home/parks/restify-mongodb-parks
+      environment: 
+        MONGODB_DB_URL: "{{mongodb_url}}"
+      when: "node_list.stdout.find('server.js') == -1"
+
+# environment is tied to specific tasks, to make sure direct connection is a thing
+- hosts: eyes
+  become: true
+  tasks:
+    - name: Installs python requests for rest-api
+      apt: pkg=python-requests state=installed update_cache=true
+      environment:
+        http_proxy: "{{http_proxy | default }}"
+        https_proxy: "{{https_proxy | default }}"
+
+    - name: Install daemon
+      apt: pkg=daemon state=installed update_cache=false
+      environment:
+        http_proxy: "{{http_proxy | default }}"
+        https_proxy: "{{https_proxy | default }}"
+
+    - name: create group parks
+      group:
+        name: parks
+
+    - name: create user parks
+      user:
+        name: parks
+        shell: /bin/bash
+        groups: parks
+        append: yes
+
+    - name: Copy eyes.py in place
+      become_user: parks
+      copy:
+        src: templates/eyes.py
+        dest: /home/parks/eyes.py
+        mode: 0755
+      when: not ansible_check_mode
+
+    - name: Daemonize eyes.py
+      become_user: parks
+      command: daemon --respawn --attempts=99 -- python /home/parks/eyes.py {{frontend_url}} {{eyes_interval}}
+      when: not ansible_check_mode
