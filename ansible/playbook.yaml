@@ -63,7 +63,7 @@
 
     - name: Copy status 503 in place
       copy:
-        src: templates/503.http
+        src: files/503.http
         dest: /etc/haproxy/errors/503.http
         owner: root
         group: root
@@ -232,7 +232,7 @@
     - name: Copy eyes.py in place
       become_user: parks
       copy:
-        src: templates/eyes.py
+        src: files/eyes.py
         dest: /home/parks/eyes.py
         mode: 0755
       when: not ansible_check_mode

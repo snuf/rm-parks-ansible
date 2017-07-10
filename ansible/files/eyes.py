@@ -15,7 +15,7 @@ latt_min=-70
 def check_float(n):
     try:
         float(n)
-        return n
+        return float(n)
     except ValueError:
         return 0.3
 
@@ -27,12 +27,12 @@ def get_randoms():
     latt_end=latt_mid-dev[0]
     return [long_mid, long_end, latt_mid, latt_end]
 
-def lode(server, interval):
+def lode(server, interval, timeout):
     try:
         while True:
             lon1, lon2, lat1, lat2 = get_randoms()
             url="%sparks/within?lat1=%s&lon1=%s&lat2=%s&lon2=%s" % (server, lat1, lon1, lat2, lon2)
-            r = requests.get(url)
+            r = requests.get(url, timeout=timeout)
             print r.text
             sleep(interval)
     except Exception, e:
@@ -40,6 +40,7 @@ def lode(server, interval):
 
 server=sys.argv[1]
 interval=check_float(sys.argv[2])
+timeout=4
 
 while True:
-    lode(server, interval)
+    lode(server, interval, timeout)
