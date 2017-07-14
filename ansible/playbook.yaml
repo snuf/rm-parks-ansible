@@ -17,7 +17,6 @@
       set_fact:
         http_proxy: "{{ proxy_http }}"
         https_proxy: "{{ proxy_https }}"
-        eyes_interval: "{{ eyes_interval | default(0.3) }}"
       when: proxy_http is defined
 
     - name: Set default fact for two haproxies
@@ -25,6 +24,11 @@
         frontend_url: http://{{ groups['haproxy'][0] }}/
         mongodb_url: mongodb://{{ groups['haproxy'][1] }}:27017
       when: num_proxies | int == 2
+
+    - name: Set option facts
+      set_fact:
+        eyes_interval: "{{ eyes_interval | default(0.3) }}"
+        cron_cheat: "{{ cron_cheat | default }}"
 
     - name: Change fact if only one haproxy node exists
       set_fact:
@@ -90,6 +94,7 @@
       check_mode: no
       ignore_errors: True
 
+    # l4 check takes care of this, made optional.
     - name: The thing that makes lights go on
       cron:
         cron_file: "trees"
@@ -97,6 +102,7 @@
         name: "Tree, lights"
         minute: "*/10"
         job: "/etc/init.d/haproxy restart > /dev/null 2>&1"
+      when: cron_cheat == True
 
   handlers:
     - name: start haproxy
@@ -178,6 +184,15 @@
         chdir: /home/parks/restify-mongodb-parks
       when: not ansible_check_mode
 
+      # < check permissions of forever, some hardening breaks the umask 
+      # of NPM installed components
+    - name: Check umask
+      shell: umask
+      register: shell_umask
+    - name: Fix NPM umask if incorrect.
+      shell: npm config set umask 0022 --global
+      when: shell_umask != "0022"
+
     - name: "Install forever (to run Node.js app)."
       npm: 
         name: forever
@@ -195,12 +210,13 @@
 
     - name: "Start Node.js app."
       become_user: parks
-      command: forever -m 60 start server.js
+      command: forever start server.js
       args:
         chdir: /home/parks/restify-mongodb-parks
       environment: 
         MONGODB_DB_URL: "{{mongodb_url}}"
       when: "node_list.stdout.find('server.js') == -1"
+      # else restart!!!
 
 # environment is tied to specific tasks, to make sure direct connection is a thing
 - hosts: eyes

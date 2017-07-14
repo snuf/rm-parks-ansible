@@ -11,8 +11,8 @@
 #  sudo sysctl -w kern.maxfilesperproc=18000
 #
 
-hosts = ["haproxy", "haproxy-1", "nodejs", "nodejs-1", "nodejs-2", "nodejs-3", "mongodb", "mongodb-1", "eyes", "eyes-1"]
-# hosts = ["haproxy", "haproxy-1", "nodejs", "mongodb", "eyes"]
+# hosts = ["haproxy", "haproxy-1", "nodejs", "nodejs-1", "nodejs-2", "nodejs-3", "mongodb", "mongodb-1", "eyes", "eyes-1"]
+hosts = ["haproxy", "haproxy-1", "nodejs", "mongodb", "eyes"]
 # hosts = ["haproxy", "nodejs", "mongodb", "eyes"]
 # hosts = ["nodejs", "mongodb", "eyes"]
 memory = 512

@@ -1,7 +1,11 @@
 #!/bin/bash
 
-refresh() {
+destroy() {
     vagrant destroy -f
+}
+
+refresh() {
+    destroy
     vagrant up --parallel
 }
 
@@ -52,15 +56,18 @@ case "$1" in
     ansible)
         ansible
         ;;
-    refresh)
+    vagrant)
         refresh
     ;;
-    full)
+    provision)
         refresh
         hostsfile
         ansible
         ;;
+    destroy)
+        destroy
+        ;;
     *)
-        echo "$0: (full|refresh|ansible|hosts)"
+        echo "$0: (provision|destroy|vagrant|hosts|ansible)"
         ;;
 esac
