@@ -29,6 +29,9 @@
       set_fact:
         eyes_interval: "{{ eyes_interval | default(0.3) }}"
         cron_cheat: "{{ cron_cheat | default }}"
+        mongodb_user: "{{ mongodb_user | default('parks') }}"
+        mongodb_pass: "{{ mongodb_password | default('parks') }}"
+        mongodb_admin_password: "{{ mongodb_admin_password | default('parks') }}"
 
     - name: Change fact if only one haproxy node exists
       set_fact:
@@ -143,6 +146,7 @@
 
 - hosts: nodejs
   become: true
+
   environment:
     http_proxy: "{{http_proxy | default }}"
     https_proxy: "{{https_proxy | default }}"
@@ -196,18 +200,13 @@
     - name: "Install pm2 (to run Node.js app)."
       npm: 
         name: pm2
-        # forever
         global: true
         state: present
       when: not ansible_check_mode
 
-    - name: "Setup pm2 startup."
-      command: pm2 startup -u parks
-      when: not ansible_check_mode
-
     - name: "Check list of Node.js apps running."
       become_user: parks
-      command: pm2 list server
+      command: pm2 list parks
       register: node_list
       changed_when: false
       check_mode: no
@@ -215,17 +214,32 @@
 
     - name: "Start Node.js app."
       become_user: parks
-      command: pm2 start --watch --hp /home/parks/restify-mongodb-parks server.js -i 0
+      # -i blows up the load... 
+      command: pm2 start --watch --hp /home/parks/restify-mongodb-parks server.js -n parks -f
       args:
         chdir: /home/parks/restify-mongodb-parks
       environment: 
         MONGODB_DB_URL: "{{mongodb_url}}"
-      when: "node_list.stdout.find('server') == -1"
+        MONGODB_USERNAME: "{{ mongodb_user }}"
+        MONGODB_PASSWORD: "{{ mongodb_pass }}"
+        MONGODB_ADMIN_PASSWORD: "{{ mongodb_admin_password }}"
+      # when: "node_list.stdout.find('parks') == -1"
       # else restart!!!
 
     - name: "Save the config in case of reboot"
       become_user: parks
       command: pm2 save
+
+    - name: "Setup pm2 startup."
+      command: pm2 startup -u parks -n parks
+      when: not ansible_check_mode
+
+    - name: Update pm2 default dir to parks home
+      lineinfile:
+        dest: /etc/default/pm2
+        line: 'export PM2_HOME="/home/parks/.pm2"'
+        state: present
+        create: True
 
 # environment is tied to specific tasks, to make sure direct connection is a thing
 - hosts: eyes

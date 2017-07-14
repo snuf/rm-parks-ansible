@@ -7,3 +7,6 @@ ansible_ssh_user=vagrant
 # proxy_https="http://a.b.c.d:8080"
 eyes_interval=0.3
 cron_cheat=False
+mongodb_user=parks
+mongodb_password=KenSentMe
+mongodb_admin_password=ParanoidAndroid
