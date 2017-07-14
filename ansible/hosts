@@ -9,14 +9,14 @@ eyes_interval=0.3
 cron_cheat=False
 
 [haproxy]
-172.28.128.3 ansible_ssh_private_key_file=../.vagrant/machines/haproxy/virtualbox/private_key
-172.28.128.4 ansible_ssh_private_key_file=../.vagrant/machines/haproxy-1/virtualbox/private_key
+172.28.128.29 ansible_ssh_private_key_file=../.vagrant/machines/haproxy/virtualbox/private_key
+172.28.128.30 ansible_ssh_private_key_file=../.vagrant/machines/haproxy-1/virtualbox/private_key
 
 [nodejs]
-172.28.128.5 ansible_ssh_private_key_file=../.vagrant/machines/nodejs/virtualbox/private_key
+172.28.128.31 ansible_ssh_private_key_file=../.vagrant/machines/nodejs/virtualbox/private_key
 
 [mongodb]
-172.28.128.6 ansible_ssh_private_key_file=../.vagrant/machines/mongodb/virtualbox/private_key
+172.28.128.32 ansible_ssh_private_key_file=../.vagrant/machines/mongodb/virtualbox/private_key
 
 [eyes]
-172.28.128.7 ansible_ssh_private_key_file=../.vagrant/machines/eyes/virtualbox/private_key
+172.28.128.33 ansible_ssh_private_key_file=../.vagrant/machines/eyes/virtualbox/private_key

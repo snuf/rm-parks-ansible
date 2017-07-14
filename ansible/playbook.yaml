@@ -193,16 +193,21 @@
       shell: npm config set umask 0022 --global
       when: shell_umask != "0022"
 
-    - name: "Install forever (to run Node.js app)."
+    - name: "Install pm2 (to run Node.js app)."
       npm: 
-        name: forever
+        name: pm2
+        # forever
         global: true
         state: present
       when: not ansible_check_mode
 
+    - name: "Setup pm2 startup."
+      command: pm2 startup -u parks
+      when: not ansible_check_mode
+
     - name: "Check list of Node.js apps running."
       become_user: parks
-      command: forever list
+      command: pm2 list server
       register: node_list
       changed_when: false
       check_mode: no
@@ -210,13 +215,17 @@
 
     - name: "Start Node.js app."
       become_user: parks
-      command: forever start server.js
+      command: pm2 start --watch --hp /home/parks/restify-mongodb-parks server.js -i 0
       args:
         chdir: /home/parks/restify-mongodb-parks
       environment: 
         MONGODB_DB_URL: "{{mongodb_url}}"
-      when: "node_list.stdout.find('server.js') == -1"
+      when: "node_list.stdout.find('server') == -1"
       # else restart!!!
+
+    - name: "Save the config in case of reboot"
+      become_user: parks
+      command: pm2 save
 
 # environment is tied to specific tasks, to make sure direct connection is a thing
 - hosts: eyes
